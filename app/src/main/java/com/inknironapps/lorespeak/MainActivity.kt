@@ -20,10 +20,14 @@ import androidx.compose.ui.platform.LocalContext
 import com.inknironapps.lorespeak.data.BookRecord
 import com.inknironapps.lorespeak.data.Importer
 import com.inknironapps.lorespeak.data.SettingsStore
+import com.inknironapps.lorespeak.playback.DownloadManager
+import com.inknironapps.lorespeak.playback.DownloadRequest
+import com.inknironapps.lorespeak.ui.DownloadsScreen
 import com.inknironapps.lorespeak.ui.LibraryScreen
 import com.inknironapps.lorespeak.ui.ReaderScreen
 import com.inknironapps.lorespeak.ui.SettingsScreen
 import com.inknironapps.lorespeak.ui.theme.LoreSpeakTheme
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -43,6 +47,7 @@ class MainActivity : ComponentActivity() {
 private sealed interface Screen {
     data object Library : Screen
     data object Settings : Screen
+    data object Downloads : Screen
     data class Reader(val bookId: String) : Screen
 }
 
@@ -53,6 +58,7 @@ private fun AppRoot() {
     val store = remember { AppGraph.store(context) }
     val settings = remember { SettingsStore(context) }
     val importer = remember { Importer(context, store) }
+    val cache = remember { AppGraph.cache(context) }
 
     var books by remember { mutableStateOf(store.all()) }
     var screen by remember { mutableStateOf<Screen>(Screen.Library) }
@@ -112,12 +118,32 @@ private fun AppRoot() {
                         refresh()
                     },
                     onSettings = { screen = Screen.Settings },
+                    onDownloads = { screen = Screen.Downloads },
+                    onDownloadAll = {
+                        val requests = books.filter { record ->
+                            val rendered = cache.renderedCount(record.id, record.voiceId)
+                            record.totalSentences <= 0 || rendered < record.totalSentences
+                        }.map { DownloadRequest(it.id, it.title) }
+                        DownloadManager.enqueue(context, requests)
+                        screen = Screen.Downloads
+                    },
                 )
             }
         }
 
         Screen.Settings -> {
             SettingsScreen(settings = settings, onBack = { screen = Screen.Library })
+        }
+
+        Screen.Downloads -> {
+            val items by DownloadManager.items.collectAsState()
+            DownloadsScreen(
+                items = items,
+                onCancel = { DownloadManager.cancel(it) },
+                onCancelAll = { DownloadManager.cancelAll() },
+                onClearFinished = { DownloadManager.clearFinished() },
+                onBack = { refresh(); screen = Screen.Library },
+            )
         }
 
         is Screen.Reader -> {

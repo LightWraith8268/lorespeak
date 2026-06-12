@@ -59,6 +59,7 @@ import com.inknironapps.lorespeak.AppGraph
 import com.inknironapps.lorespeak.data.BookRecord
 import com.inknironapps.lorespeak.data.LibraryStore
 import com.inknironapps.lorespeak.playback.DownloadManager
+import com.inknironapps.lorespeak.playback.DownloadRequest
 import com.inknironapps.lorespeak.playback.PlaybackController
 import com.inknironapps.lorespeak.playback.PlaybackService
 import com.inknironapps.lorespeak.reader.ReaderEngine
@@ -163,21 +164,21 @@ fun ReaderScreen(
 @Composable
 private fun DownloadButton(record: BookRecord) {
     val context = LocalContext.current
-    val download by DownloadManager.state.collectAsState()
-    val isDownloading = download.running && download.bookId == record.id
-    val rendered = remember(download, record.id) {
+    val items by DownloadManager.items.collectAsState()
+    val item = items.firstOrNull { it.bookId == record.id }
+    val rendered = remember(items, record.id) {
         AppGraph.cache(context).renderedCount(record.id, record.voiceId)
     }
     val downloaded = record.totalSentences > 0 && rendered >= record.totalSentences
 
     when {
-        isDownloading -> Box(contentAlignment = Alignment.Center) {
+        item?.active == true -> Box(contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
-                progress = { download.fraction },
+                progress = { item.fraction },
                 modifier = Modifier.size(34.dp),
                 strokeWidth = 2.dp,
             )
-            IconButton(onClick = { DownloadManager.cancel(context) }) {
+            IconButton(onClick = { DownloadManager.cancel(record.id) }) {
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Cancel download",
@@ -194,7 +195,11 @@ private fun DownloadButton(record: BookRecord) {
             )
         }
 
-        else -> IconButton(onClick = { DownloadManager.start(context, record.id) }) {
+        else -> IconButton(
+            onClick = {
+                DownloadManager.enqueue(context, listOf(DownloadRequest(record.id, record.title)))
+            },
+        ) {
             Icon(Icons.Default.Download, contentDescription = "Download for offline")
         }
     }

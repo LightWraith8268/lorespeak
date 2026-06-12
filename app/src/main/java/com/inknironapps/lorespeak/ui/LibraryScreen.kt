@@ -13,7 +13,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Card
@@ -40,12 +42,22 @@ fun LibraryScreen(
     onOpen: (BookRecord) -> Unit,
     onDelete: (BookRecord) -> Unit,
     onSettings: () -> Unit,
+    onDownloads: () -> Unit,
+    onDownloadAll: () -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("LoreSpeak") },
                 actions = {
+                    if (books.isNotEmpty()) {
+                        IconButton(onClick = onDownloadAll) {
+                            Icon(Icons.Filled.Download, contentDescription = "Download all")
+                        }
+                    }
+                    IconButton(onClick = onDownloads) {
+                        Icon(Icons.Outlined.DownloadForOffline, contentDescription = "Downloads")
+                    }
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = "Settings")
                     }
