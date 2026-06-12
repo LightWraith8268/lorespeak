@@ -1,0 +1,33 @@
+name: Auto Merge
+
+# Pushes to claude/dev open a PR to main and merge it, mirroring the Ink & Iron Apps pipeline.
+# The merge to main then triggers release.yml.
+on:
+  push:
+    branches: [claude/dev]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open or reuse PR, then merge to main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          existing=$(gh pr list --head claude/dev --base main --state open --json number --jq '.[0].number' || true)
+          if [ -z "$existing" ]; then
+            gh pr create --base main --head claude/dev \
+              --title "Merge claude/dev into main" \
+              --body "Automated merge of claude/dev." || true
+          fi
+          gh pr merge claude/dev --admin --merge || \
+            gh pr merge claude/dev --merge

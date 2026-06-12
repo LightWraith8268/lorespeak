@@ -1,0 +1,6 @@
+# Normalize line endings; keep shell scripts LF so they run on Linux CI runners.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.png binary
+*.so binary
