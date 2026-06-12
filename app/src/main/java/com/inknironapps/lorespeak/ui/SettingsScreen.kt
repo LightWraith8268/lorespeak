@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -66,6 +68,7 @@ fun SettingsScreen(settings: SettingsStore, onBack: () -> Unit) {
     var activeVoice by remember { mutableStateOf<Int?>(null) }
     var defaultVoice by remember { mutableIntStateOf(settings.defaultVoiceId) }
     var defaultSpeed by remember { mutableFloatStateOf(settings.defaultSpeed) }
+    var voicesExpanded by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         scope.launch {
@@ -115,35 +118,52 @@ fun SettingsScreen(settings: SettingsStore, onBack: () -> Unit) {
             }
 
             item {
-                Text(
-                    "Default voice",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                Text(
-                    "Tap play to hear each voice, then pick your default.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { voicesExpanded = !voicesExpanded }
+                        .padding(top = 8.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Default voice", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            if (voiceCount == 0) {
+                                "Loading voices…"
+                            } else {
+                                "Voice ${defaultVoice + 1} of $voiceCount  ·  tap to change"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        if (voicesExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (voicesExpanded) "Collapse voices" else "Expand voices",
+                    )
+                }
             }
 
-            if (voiceCount == 0) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+            if (voicesExpanded) {
+                if (voiceCount == 0) {
+                    item {
+                        Box(
+                            Modifier.fillMaxWidth().padding(24.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { CircularProgressIndicator() }
                     }
-                }
-            } else {
-                items((0 until voiceCount).toList()) { sid ->
-                    VoiceRow(
-                        sid = sid,
-                        selected = defaultVoice == sid,
-                        isActive = activeVoice == sid,
-                        previewPlayer = preview,
-                        speed = defaultSpeed,
-                        voiceCount = voiceCount,
-                        onSelect = { defaultVoice = sid; settings.setDefaultVoice(sid) },
-                    )
+                } else {
+                    items((0 until voiceCount).toList()) { sid ->
+                        VoiceRow(
+                            sid = sid,
+                            selected = defaultVoice == sid,
+                            isActive = activeVoice == sid,
+                            previewPlayer = preview,
+                            speed = defaultSpeed,
+                            voiceCount = voiceCount,
+                            onSelect = { defaultVoice = sid; settings.setDefaultVoice(sid) },
+                        )
+                    }
                 }
             }
 
