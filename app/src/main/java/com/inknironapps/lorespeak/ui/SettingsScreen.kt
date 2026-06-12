@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.inknironapps.lorespeak.AppGraph
 import com.inknironapps.lorespeak.BuildConfig
 import com.inknironapps.lorespeak.data.SettingsStore
+import com.inknironapps.lorespeak.playback.PlaybackController
 import com.inknironapps.lorespeak.tts.VoicePreviewPlayer
 import com.inknironapps.lorespeak.update.UpdateChecker
 import com.inknironapps.lorespeak.update.UpdateInfo
@@ -161,7 +162,11 @@ fun SettingsScreen(settings: SettingsStore, onBack: () -> Unit) {
                             previewPlayer = preview,
                             speed = defaultSpeed,
                             voiceCount = voiceCount,
-                            onSelect = { defaultVoice = sid; settings.setDefaultVoice(sid) },
+                            onSelect = {
+                                defaultVoice = sid
+                                settings.setDefaultVoice(sid)
+                                PlaybackController.engine?.setVoice(sid)
+                            },
                         )
                     }
                 }

@@ -37,11 +37,12 @@ object PlaybackController {
 
         val tts = AppGraph.tts(context)
         val cache = AppGraph.cache(context)
+        val voiceId = AppGraph.settings(context).defaultVoiceId // single global voice
         val book = Importer.parseStored(record)
         val eng = ReaderEngine(tts, cache, record.id) { chapterIndex, sentenceIndex, globalSentence ->
             store.saveProgress(record.id, chapterIndex, sentenceIndex, globalSentence)
         }
-        eng.load(book, record.chapterIndex, record.sentenceIndex, record.voiceId, speed)
+        eng.load(book, record.chapterIndex, record.sentenceIndex, voiceId, speed)
         engine = eng
         currentBookId = record.id
         return eng

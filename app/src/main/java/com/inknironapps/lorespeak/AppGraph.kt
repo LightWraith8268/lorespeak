@@ -2,6 +2,7 @@ package com.inknironapps.lorespeak
 
 import android.content.Context
 import com.inknironapps.lorespeak.data.LibraryStore
+import com.inknironapps.lorespeak.data.SettingsStore
 import com.inknironapps.lorespeak.tts.AudioCache
 import com.inknironapps.lorespeak.tts.KokoroTts
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,14 @@ object AppGraph {
     fun cache(context: Context): AudioCache =
         cacheRef ?: synchronized(this) {
             cacheRef ?: AudioCache(context.applicationContext).also { cacheRef = it }
+        }
+
+    @Volatile
+    private var settingsRef: SettingsStore? = null
+
+    fun settings(context: Context): SettingsStore =
+        settingsRef ?: synchronized(this) {
+            settingsRef ?: SettingsStore(context.applicationContext).also { settingsRef = it }
         }
 
     /** Loads the Kokoro engine on first use (off the main thread). Subsequent calls are instant. */

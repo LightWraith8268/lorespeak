@@ -146,8 +146,6 @@ fun ReaderScreen(
                 is LoadState.Failed -> Text(s.message, Modifier.padding(24.dp), textAlign = TextAlign.Center)
                 is LoadState.Ready -> Player(
                     engine = s.engine,
-                    voiceCount = s.voiceCount,
-                    initialVoice = record.voiceId,
                     speed = speed,
                     onToggle = {
                         // Drive playback through the MediaController so Media3 posts the media
@@ -158,7 +156,6 @@ fun ReaderScreen(
                         }
                     },
                     onSpeed = { newSpeed -> speed = newSpeed; s.engine.speed = newSpeed },
-                    onVoice = { sid -> s.engine.setVoice(sid); store.setVoice(record.id, sid) },
                 )
             }
         }
@@ -171,7 +168,7 @@ private fun DownloadButton(record: BookRecord) {
     val items by DownloadManager.items.collectAsState()
     val item = items.firstOrNull { it.bookId == record.id }
     val rendered = remember(items, record.id) {
-        AppGraph.cache(context).renderedCount(record.id, record.voiceId)
+        AppGraph.cache(context).renderedCount(record.id, AppGraph.settings(context).defaultVoiceId)
     }
     val downloaded = record.totalSentences > 0 && rendered >= record.totalSentences
 
@@ -209,20 +206,14 @@ private fun DownloadButton(record: BookRecord) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Player(
     engine: ReaderEngine,
-    voiceCount: Int,
-    initialVoice: Int,
     speed: Float,
     onToggle: () -> Unit,
     onSpeed: (Float) -> Unit,
-    onVoice: (Int) -> Unit,
 ) {
     val state by engine.state.collectAsState()
-    var voice by remember { mutableStateOf(initialVoice) }
-    var voiceExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -316,39 +307,5 @@ private fun Player(
             }
         }
 
-        // Voice — collapsible; selecting a voice is enforced on the player immediately.
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { voiceExpanded = !voiceExpanded }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Voice ${voice + 1} of $voiceCount",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    if (voiceExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (voiceExpanded) "Collapse voices" else "Expand voices",
-                )
-            }
-            AnimatedVisibility(visible = voiceExpanded) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (sid in 0 until voiceCount) {
-                        FilterChip(
-                            selected = voice == sid,
-                            onClick = {
-                                voice = sid
-                                onVoice(sid)
-                            },
-                            label = { Text("${sid + 1}") },
-                        )
-                    }
-                }
-            }
-        }
     }
 }

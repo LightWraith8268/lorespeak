@@ -68,7 +68,7 @@ class DownloadService : Service() {
 
         val sentences = book.chapters.flatMap { it.sentences }
         val total = sentences.size
-        val voiceId = record.voiceId
+        val voiceId = AppGraph.settings(this).defaultVoiceId // single global voice
         DownloadManager.update(bookId) { it.copy(done = 0, total = total) }
 
         sentences.forEachIndexed { index, text ->

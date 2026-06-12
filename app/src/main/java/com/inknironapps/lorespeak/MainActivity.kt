@@ -56,7 +56,7 @@ private fun AppRoot() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { AppGraph.store(context) }
-    val settings = remember { SettingsStore(context) }
+    val settings = remember { AppGraph.settings(context) }
     val importer = remember { Importer(context, store) }
     val cache = remember { AppGraph.cache(context) }
 
@@ -120,8 +120,9 @@ private fun AppRoot() {
                     onSettings = { screen = Screen.Settings },
                     onDownloads = { screen = Screen.Downloads },
                     onDownloadAll = {
+                        val voiceId = settings.defaultVoiceId
                         val requests = books.filter { record ->
-                            val rendered = cache.renderedCount(record.id, record.voiceId)
+                            val rendered = cache.renderedCount(record.id, voiceId)
                             record.totalSentences <= 0 || rendered < record.totalSentences
                         }.map { DownloadRequest(it.id, it.title) }
                         DownloadManager.enqueue(context, requests)
