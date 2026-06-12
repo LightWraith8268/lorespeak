@@ -15,8 +15,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
-    env:
-      PUBLIC_RELEASES_TOKEN: ${{ secrets.PUBLIC_RELEASES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,19 +60,3 @@ jobs:
           name: LoreSpeak v${{ steps.tag.outputs.new_version }}
           body: ${{ steps.tag.outputs.changelog }}
           files: dist/LoreSpeak-v${{ steps.tag.outputs.new_version }}-debug.apk
-
-      # Mirror the APK to the public releases repo so the in-app updater can poll it without auth.
-      # Requires a fine-grained PAT secret PUBLIC_RELEASES_TOKEN (Contents: write) on that repo.
-      - name: Mirror APK to public releases repo
-        if: ${{ env.PUBLIC_RELEASES_TOKEN != '' }}
-        env:
-          GH_TOKEN: ${{ env.PUBLIC_RELEASES_TOKEN }}
-        run: |
-          gh release create ${{ steps.tag.outputs.new_tag }} \
-            "dist/LoreSpeak-v${{ steps.tag.outputs.new_version }}-debug.apk" \
-            --repo LightWraith8268/lorespeak-releases \
-            --title "LoreSpeak v${{ steps.tag.outputs.new_version }}" \
-            --notes "Automated mirror of the debug build." \
-          || gh release upload ${{ steps.tag.outputs.new_tag }} \
-            "dist/LoreSpeak-v${{ steps.tag.outputs.new_version }}-debug.apk" \
-            --repo LightWraith8268/lorespeak-releases --clobber

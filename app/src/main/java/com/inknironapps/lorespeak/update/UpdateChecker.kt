@@ -13,15 +13,13 @@ import java.net.URL
 data class UpdateInfo(val version: String, val downloadUrl: String, val assetName: String)
 
 /**
- * Sideloaded-flavor update checker (Ink & Iron "Pipeline B"). Polls a public releases mirror for the
- * latest debug APK, compares against the installed version, downloads it, and hands it to the system
- * package installer. The main repo is private, so releases are mirrored to a dedicated public repo
- * for unauthenticated polling.
+ * Sideloaded-flavor update checker. Polls the public repo's latest release for the newest debug APK,
+ * compares against the installed version, downloads it, and hands it to the system package installer.
  */
 object UpdateChecker {
 
     private const val RELEASES_API =
-        "https://api.github.com/repos/LightWraith8268/lorespeak-releases/releases/latest"
+        "https://api.github.com/repos/LightWraith8268/lorespeak/releases/latest"
 
     /** Returns an update if the mirror's latest version is newer than [currentVersion], else null. */
     suspend fun check(currentVersion: String): UpdateInfo? = withContext(Dispatchers.IO) {
