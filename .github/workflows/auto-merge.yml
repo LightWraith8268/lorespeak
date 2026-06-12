@@ -1,14 +1,13 @@
 name: Auto Merge
 
-# Pushes to claude/dev open a PR to main and merge it, mirroring the Ink & Iron Apps pipeline.
-# The merge to main then triggers release.yml.
+# Pushes to claude/dev are merged into main (which then triggers release.yml). A direct merge is
+# used instead of a PR because the default GITHUB_TOKEN cannot open pull requests.
 on:
   push:
     branches: [claude/dev]
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   auto-merge:
@@ -18,21 +17,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Open or reuse PR, then merge to main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge claude/dev into main
         run: |
           set -e
-          git fetch origin main
-          if [ "$(git rev-list --count origin/main..HEAD)" -eq 0 ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main claude/dev
+          if [ "$(git rev-list --count origin/main..origin/claude/dev)" -eq 0 ]; then
             echo "claude/dev has no commits ahead of main; nothing to merge."
             exit 0
           fi
-          existing=$(gh pr list --head claude/dev --base main --state open --json number --jq '.[0].number' || true)
-          if [ -z "$existing" ]; then
-            gh pr create --base main --head claude/dev \
-              --title "Merge claude/dev into main" \
-              --body "Automated merge of claude/dev." || true
-          fi
-          gh pr merge claude/dev --admin --merge || \
-            gh pr merge claude/dev --merge
+          git checkout -B main origin/main
+          git merge --ff-only origin/claude/dev || git merge --no-edit origin/claude/dev
+          git push origin main
