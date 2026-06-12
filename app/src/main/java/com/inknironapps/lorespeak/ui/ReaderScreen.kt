@@ -1,9 +1,12 @@
 package com.inknironapps.lorespeak.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,11 +21,12 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -205,6 +209,7 @@ private fun DownloadButton(record: BookRecord) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Player(
     engine: ReaderEngine,
@@ -217,6 +222,7 @@ private fun Player(
 ) {
     val state by engine.state.collectAsState()
     var voice by remember { mutableStateOf(initialVoice) }
+    var voiceExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -310,16 +316,39 @@ private fun Player(
             }
         }
 
-        // Voice
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(
-                onClick = {
-                    val next = (voice + 1) % voiceCount
-                    voice = next
-                    onVoice(next)
-                },
-                label = { Text("Voice ${voice + 1} / $voiceCount") },
-            )
+        // Voice — collapsible; selecting a voice is enforced on the player immediately.
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { voiceExpanded = !voiceExpanded }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Voice ${voice + 1} of $voiceCount",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    if (voiceExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (voiceExpanded) "Collapse voices" else "Expand voices",
+                )
+            }
+            AnimatedVisibility(visible = voiceExpanded) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (sid in 0 until voiceCount) {
+                        FilterChip(
+                            selected = voice == sid,
+                            onClick = {
+                                voice = sid
+                                onVoice(sid)
+                            },
+                            label = { Text("${sid + 1}") },
+                        )
+                    }
+                }
+            }
         }
     }
 }

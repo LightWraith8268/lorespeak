@@ -36,6 +36,9 @@ The debug APK is produced at `app/build/outputs/apk/debug/app-debug.apk`.
 - **CI** builds a debug APK on every pull request and on pushes to `claude/dev`.
 - Pushing to `claude/dev` opens and merges a pull request into `main`.
 - Merging to `main` computes the next version from conventional commits and publishes a GitHub Release containing the debug APK.
+- Releases are mirrored to the public [`lorespeak-releases`](https://github.com/LightWraith8268/lorespeak-releases) repo so the in-app updater can poll them without authentication. This requires a fine-grained PAT secret `PUBLIC_RELEASES_TOKEN` (Contents: write on the mirror repo) on this repository; without it the mirror step is skipped.
+
+All builds are signed with the committed shared debug keystore so the in-app updater can install updates over an existing install.
 
 ## Licensing
 

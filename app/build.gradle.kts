@@ -21,7 +21,21 @@ android {
         }
     }
 
+    signingConfigs {
+        // Shared debug key (committed) so every build — local and CI — has the same signature,
+        // which is required for the in-app updater to install over an existing install.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

@@ -4,3 +4,4 @@
 *.jar binary
 *.png binary
 *.so binary
+*.keystore binary
