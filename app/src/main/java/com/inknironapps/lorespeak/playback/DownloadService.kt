@@ -11,13 +11,17 @@ import androidx.core.app.NotificationCompat
 import com.inknironapps.lorespeak.AppGraph
 import com.inknironapps.lorespeak.R
 import com.inknironapps.lorespeak.data.Importer
+import com.inknironapps.lorespeak.tts.KokoroTts
 import com.inknironapps.lorespeak.tts.trimSilence
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 
 /**
@@ -78,34 +82,62 @@ class DownloadService : Service() {
         }
     }
 
-    private suspend fun renderBook(bookId: String): DownloadStatus {
-        val store = AppGraph.store(this)
-        val record = store.get(bookId) ?: return DownloadStatus.FAILED
-        val cache = AppGraph.cache(this)
-        val tts = AppGraph.tts(this)
-        val book = runCatching { Importer.parseStored(record) }.getOrNull() ?: return DownloadStatus.FAILED
+    private suspend fun renderBook(bookId: String): DownloadStatus = coroutineScope {
+        val service = this@DownloadService
+        val store = AppGraph.store(service)
+        val record = store.get(bookId) ?: return@coroutineScope DownloadStatus.FAILED
+        val cache = AppGraph.cache(service)
+        val book = runCatching { Importer.parseStored(record) }.getOrNull()
+            ?: return@coroutineScope DownloadStatus.FAILED
 
         val sentences = book.chapters.flatMap { it.sentences }
         val total = sentences.size
-        val voiceId = AppGraph.settings(this).defaultVoiceId // single global voice
-        DownloadManager.update(bookId) { it.copy(done = 0, total = total) }
-
-        sentences.forEachIndexed { index, text ->
-            if (!scope.isActive || DownloadManager.isCancelled(bookId)) return DownloadStatus.CANCELLED
-            if (!cache.has(bookId, voiceId, index)) {
-                val audio = runCatching { tts.generate(text, voiceId, 1.0f) }.getOrNull()
-                if (audio != null && audio.samples.isNotEmpty()) {
-                    cache.write(bookId, voiceId, index, trimSilence(audio.samples, tts.sampleRate))
-                }
-            }
-            val done = index + 1
-            if (done == total || index % 5 == 0) {
-                DownloadManager.update(bookId) { it.copy(done = done) }
-                notify(buildNotification(record.title, done, total))
-            }
+        val voiceId = AppGraph.settings(service).defaultVoiceId // single global voice
+        DownloadManager.update(bookId) {
+            it.copy(done = cache.renderedCount(bookId, voiceId).coerceAtMost(total), total = total)
         }
-        DownloadManager.update(bookId) { it.copy(done = total, total = total) }
-        return DownloadStatus.COMPLETED
+
+        // Render in parallel across a small pool of sessions to use more of the SoC's cores. The
+        // cache stays per-sentence, so already-downloaded books remain valid.
+        val pool = List(POOL_SIZE) { KokoroTts.create(service, numThreads = THREADS_PER_SESSION) }
+        val nextIndex = AtomicInteger(0)
+        val completed = AtomicInteger(0)
+        val cancelled = AtomicInteger(0)
+
+        try {
+            pool.map { session ->
+                launch {
+                    while (isActive) {
+                        val index = nextIndex.getAndIncrement()
+                        if (index >= total) break
+                        if (DownloadManager.isCancelled(bookId)) {
+                            cancelled.set(1)
+                            break
+                        }
+                        if (!cache.has(bookId, voiceId, index)) {
+                            val audio = runCatching { session.generate(sentences[index], voiceId, 1.0f) }.getOrNull()
+                            if (audio != null && audio.samples.isNotEmpty()) {
+                                cache.write(bookId, voiceId, index, trimSilence(audio.samples, session.sampleRate))
+                            }
+                        }
+                        val done = completed.incrementAndGet()
+                        if (done == total || done % 10 == 0) {
+                            DownloadManager.update(bookId) { it.copy(done = done) }
+                            notify(buildNotification(record.title, done, total))
+                        }
+                    }
+                }
+            }.joinAll()
+        } finally {
+            pool.forEach { runCatching { it.release() } }
+        }
+
+        if (cancelled.get() == 1) {
+            DownloadStatus.CANCELLED
+        } else {
+            DownloadManager.update(bookId) { it.copy(done = total, total = total) }
+            DownloadStatus.COMPLETED
+        }
     }
 
     private fun buildNotification(text: String, done: Int, total: Int): Notification {
@@ -142,5 +174,9 @@ class DownloadService : Service() {
     companion object {
         private const val CHANNEL_ID = "downloads"
         private const val NOTIFICATION_ID = 2001
+
+        // Parallel render sessions and threads each. 2 x 4 ≈ a full 8-core SoC, ~1.3-1.5x throughput.
+        private const val POOL_SIZE = 2
+        private const val THREADS_PER_SESSION = 4
     }
 }
