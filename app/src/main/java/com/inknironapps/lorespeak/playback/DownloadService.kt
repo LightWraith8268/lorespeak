@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.inknironapps.lorespeak.AppGraph
 import com.inknironapps.lorespeak.R
@@ -28,6 +29,7 @@ class DownloadService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var loop: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,13 +37,30 @@ class DownloadService : Service() {
         ensureChannel()
         startForeground(NOTIFICATION_ID, buildNotification("Starting…", 0, 1))
         if (loop?.isActive != true) {
+            acquireWakeLock()
             loop = scope.launch {
                 drainQueue()
+                releaseWakeLock()
                 stopForegroundCompat()
                 stopSelf()
             }
         }
         return START_NOT_STICKY
+    }
+
+    // Keeps the CPU running with the screen off so synthesis doesn't pause when backgrounded.
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val powerManager = getSystemService(PowerManager::class.java)
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "lorespeak:download").apply {
+            setReferenceCounted(false)
+            acquire(8 * 60 * 60 * 1000L) // 8 h safety cap
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
     }
 
     private suspend fun drainQueue() {
@@ -115,6 +134,7 @@ class DownloadService : Service() {
     private fun stopForegroundCompat() = stopForeground(STOP_FOREGROUND_REMOVE)
 
     override fun onDestroy() {
+        releaseWakeLock()
         scope.cancel()
         super.onDestroy()
     }
